@@ -1,0 +1,60 @@
+name: PHP Composer
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Copy .env
+      working-directory: ./source
+      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+
+    - name: Validate composer.json and composer.lock
+      working-directory: ./source
+      run: composer validate
+
+    - name: Cache Composer packages
+      id: composer-cache
+      uses: actions/cache@v2
+      with:
+        path: source/vendor
+        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-php-
+
+    - name: Install dependencies
+      working-directory: ./source
+      if: steps.composer-cache.outputs.cache-hit != 'true'
+      run: composer install --prefer-dist --no-progress --no-suggest
+    
+    - name: Generate key
+      working-directory: ./source
+      run: php artisan key:generate
+
+    # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
+    # Docs: https://getcomposer.org/doc/articles/scripts.md
+
+    - name: Run Lint
+      working-directory: ./source
+      run: composer lint
+      
+    - name: Run Code Sniffer
+      working-directory: ./source
+      run: composer sniffer
+      
+    - name: Run Static Analysis
+      working-directory: ./source
+      run: composer stan
+      
+    - name: Run Unit tests
+      working-directory: ./source
+      run: composer unit
