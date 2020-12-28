@@ -61,7 +61,7 @@ if [[ "$?" == 1 ]]; then
   echo -e "${C_RED}NOK!${C_RESET} Please install PHP Stan"
   exit 1
 else
-  output=$(eval "${STAGED_FILES} | xargs -r source/vendor/bin/phpstan analyse" 2>&1)
+  output=$(eval "${STAGED_FILES} | xargs -r source/vendor/bin/phpstan analyse -c ./source/phpstan.neon --memory-limit=2G" 2>&1)
   exitcode=$?
   if [[ 0 == $exitcode || 130 == $exitcode ]]; then
       echo -e "${C_GREEN}OK!${C_RESET}"
