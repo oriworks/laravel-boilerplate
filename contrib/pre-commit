@@ -1,0 +1,91 @@
+#!/bin/sh
+
+C_RESET='\e[0m'
+C_RED='\e[31m'
+C_GREEN='\e[32m'
+C_YELLOW='\e[33m'
+
+STAGED_FILES="git diff --cached --name-only --diff-filter=ACM | grep \".php\{0,1\}$\""
+
+if [[ "$(eval "${STAGED_FILES}")" = "" ]]; then
+  exit 0
+fi
+
+
+# PHP Lint
+printf "${C_YELLOW}[%s]${C_RESET} %-20s" "1/4" "PHP Lint"
+output=$(eval "${STAGED_FILES} | xargs -r php -l" 2>&1)
+exitcode=$?
+if [[ 0 == $exitcode || 130 == $exitcode ]]; then
+    echo -e "${C_GREEN}OK!${C_RESET}"
+else
+    echo -e "${C_RED}NOK!${C_RESET}\n\n$output"
+    exit 1
+fi
+
+# PHP CodeSniffer
+RULESET=./source/phpcs.xml
+
+printf "${C_YELLOW}[%s]${C_RESET} %-20s" "2/4" "PHP CodeSniffer"
+
+which ./source/vendor/bin/phpcs &> /dev/null
+if [[ "$?" == 1 ]]; then
+  echo -e "${C_RED}NOK!${C_RESET} Please install PHP CodeSniffer"
+  exit 1
+else
+  output=$(eval "${STAGED_FILES} | xargs -r ./source/vendor/bin/phpcs --standard=\"$RULESET\"" 2>&1)
+  exitcode=$?
+
+  if [[ 0 == $exitcode || 130 == $exitcode ]]; then
+      echo -e "${C_GREEN}OK!${C_RESET}"
+  else
+    output=$(eval "${STAGED_FILES} | xargs -r ./source/vendor/bin/phpcbf" 2>&1)
+    output=$(eval "${STAGED_FILES} | xargs -r git add" 2>&1)
+    output=$(eval "${STAGED_FILES} | xargs -r ./source/vendor/bin/phpcs --standard=\"$RULESET\"" 2>&1)
+    exitcode=$?
+
+    if [[ 0 == $exitcode || 130 == $exitcode ]]; then
+        echo -e "${C_GREEN}OK!${C_RESET}"
+    else
+        echo -e "${C_RED}NOK!${C_RESET}\n\n$output"
+        exit 1
+    fi
+  fi
+fi
+
+# PHP Stan
+printf "${C_YELLOW}[%s]${C_RESET} %-20s" "3/4" "PHP Stan"
+
+which ./source/vendor/bin/phpstan &> /dev/null
+if [[ "$?" == 1 ]]; then
+  echo -e "${C_RED}NOK!${C_RESET} Please install PHP Stan"
+  exit 1
+else
+  output=$(eval "${STAGED_FILES} | xargs -r source/vendor/bin/phpstan analyse" 2>&1)
+  exitcode=$?
+  if [[ 0 == $exitcode || 130 == $exitcode ]]; then
+      echo -e "${C_GREEN}OK!${C_RESET}"
+  else
+      echo -e "${C_RED}NOK!${C_RESET}\n\n$output"
+      exit 1
+  fi
+fi
+
+# PHP Unit
+printf "${C_YELLOW}[%s]${C_RESET} %-20s" "4/4" "PHP Unit"
+which ./source/vendor/bin/phpunit &> /dev/null
+if [[ "$?" == 1 ]]; then
+  echo -e "${C_RED}NOK!${C_RESET} Please install PHP Unit"
+  exit 1
+else
+  output=$(eval "source/vendor/bin/phpunit -c ./source/phpunit.xml" 2>&1)
+  exitcode=$?
+  if [[ 0 == $exitcode || 130 == $exitcode ]]; then
+      echo -e "${C_GREEN}OK!${C_RESET}"
+  else
+      echo -e "${C_RED}NOK!${C_RESET}\n\n$output"
+      exit 1
+  fi
+fi
+
+exit 0;
