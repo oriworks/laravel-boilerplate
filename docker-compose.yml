@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+
+  laravel:
+    build: .docker/app
+    container_name: project_name_app
+    entrypoint: /docker/entrypoint.sh
+    volumes:
+      - ./source:/var/www
+    networks:
+      - project_name-network
+
+  nginx:
+    build: .docker/nginx
+    container_name: project_name_nginx
+    restart: always
+    tty: true
+    ports:
+      - "8000:80"
+    volumes:
+      - ./source:/var/www
+    depends_on:
+      - laravel
+    networks:
+      - project_name-network
+
+networks:
+  project_name-network:
+    driver: bridge
